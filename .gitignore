@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+.envrc
+config/defaults.yaml
+notebooks/
+.DS_Store
+.cache/
+.eggs/
+*.egg-info/
+.idea/
+.vscode/
+data/
