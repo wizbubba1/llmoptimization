@@ -1,0 +1,83 @@
+# Rename to defaults.yaml and populate with production secrets before running live experiments.
+experiment:
+  timezone: "UTC"
+  rebalance_day: "sunday"
+  rebalance_time: "23:59"
+  target_return_annual: 0.04
+  stop_loss_pct: 0.4
+  portfolio:
+    treatment_size: 60
+    control_size: 60
+    weighting: "equal"
+    reserve_pairs: 10
+  assets:
+    - bitcoin
+    - ethereum
+    - solana
+
+llm:
+  temperature: 0.3
+  max_tokens: 1000
+  top_p: 1.0
+  frequency_penalty: 0
+  presence_penalty: 0
+  iterations: 5
+  models:
+    - name: "gpt-4"
+      provider: "openai"
+      weight: 0.30
+      api_key: "YOUR_OPENAI_KEY"
+    - name: "claude-3-5-sonnet"
+      provider: "anthropic"
+      weight: 0.30
+      api_key: "YOUR_ANTHROPIC_KEY"
+    - name: "gemini-pro"
+      provider: "google"
+      weight: 0.25
+      api_key: "YOUR_GEMINI_KEY"
+    - name: "llama-3-405b"
+      provider: "meta"
+      weight: 0.15
+      endpoint: "https://api.your-llama-provider.com"
+      api_key: "YOUR_LLaMA_KEY"
+
+apis:
+  coingecko:
+    api_key: "YOUR_COINGECKO_KEY"
+    base_url: "https://pro-api.coingecko.com/api/v3"
+  ahrefs:
+    api_key: "YOUR_AHREFS_KEY"
+  semrush:
+    api_key: "YOUR_SEMRUSH_KEY"
+  twitter:
+    api_key: "YOUR_TWITTER_KEY"
+    api_secret: "YOUR_TWITTER_SECRET"
+  reddit:
+    client_id: "YOUR_REDDIT_ID"
+    client_secret: "YOUR_REDDIT_SECRET"
+  github:
+    token: "YOUR_GITHUB_TOKEN"
+
+storage:
+  postgres:
+    uri: "postgresql+psycopg2://user:password@localhost:5432/llm_opt"
+  mongo:
+    uri: "mongodb://localhost:27017"
+    database: "llm_opt"
+  s3:
+    bucket: "llm-opt-data"
+    endpoint: "https://s3.amazonaws.com"
+    access_key: "YOUR_S3_ACCESS"
+    secret_key: "YOUR_S3_SECRET"
+
+risk_management:
+  max_portfolio_drawdown: 0.3
+  max_position_volume_pct: 0.05
+  slippage_assumptions:
+    large_cap: 0.0015
+    mid_cap: 0.003
+    small_cap: 0.005
+
+paths:
+  llm_runs_dir: "data/llm_runs"
+
