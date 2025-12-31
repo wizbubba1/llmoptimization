@@ -19,10 +19,96 @@ from discord.ext import commands
 
 from llm_asset_oracle.valuation.engine import ValuationEngine, ValuationResult
 from llm_asset_oracle.valuation.parser import MarketCapResult
-from llm_asset_oracle.valuation.statistics import format_stats_table
+from llm_asset_oracle.valuation.statistics import format_stats_table, ValuationStatistics
 from llm_asset_oracle.valuation.models import format_model_list, VALUATION_MODELS
 
 logger = logging.getLogger(__name__)
+
+
+def generate_trade_verdict(stats: ValuationStatistics) -> str:
+    """
+    Generate a final trade verdict based on consensus data.
+
+    Combines agreement percentage and median market cap to produce
+    a directional bias and trade plan recommendation.
+    """
+    consensus = stats.consensus_strength
+    median = stats.median_value
+    std_dev = stats.std_dev
+    successful = stats.successful_parses
+
+    # Determine conviction level based on consensus
+    if consensus >= 80:
+        conviction = "HIGH CONVICTION"
+        conviction_emoji = "🔥"
+    elif consensus >= 60:
+        conviction = "MODERATE CONVICTION"
+        conviction_emoji = "✅"
+    elif consensus >= 40:
+        conviction = "LOW CONVICTION"
+        conviction_emoji = "⚠️"
+    else:
+        conviction = "NO CONSENSUS"
+        conviction_emoji = "❌"
+
+    # Determine valuation tier
+    if median >= 50:
+        tier = "MEGA CAP"
+        tier_note = "Large cap potential, but high bar to meet"
+    elif median >= 20:
+        tier = "LARGE CAP"
+        tier_note = "Substantial valuation - needs strong fundamentals"
+    elif median >= 5:
+        tier = "MID CAP"
+        tier_note = "Solid mid-range potential"
+    elif median >= 1:
+        tier = "SMALL CAP"
+        tier_note = "Higher risk/reward profile"
+    else:
+        tier = "MICRO CAP"
+        tier_note = "Speculative territory"
+
+    # Calculate coefficient of variation for spread assessment
+    cv = (std_dev / median * 100) if median > 0 else 100
+
+    if cv <= 30:
+        spread_note = "Tight consensus - models agree"
+    elif cv <= 60:
+        spread_note = "Moderate spread - some divergence"
+    else:
+        spread_note = "Wide spread - high uncertainty"
+
+    # Generate directional bias
+    if consensus >= 60 and cv <= 50:
+        if median >= 10:
+            bias = "📈 **BULLISH BIAS** - Strong AI consensus supports investment thesis"
+            strategy = f"Consider LONG position on launch. Target: ${median:.1f}B+ market cap"
+        else:
+            bias = "📈 **CAUTIOUSLY BULLISH** - Consensus exists but modest upside"
+            strategy = f"Selective entry on dips. Watch for ${median*1.5:.1f}B breakout"
+    elif consensus >= 40:
+        bias = "↔️ **NEUTRAL** - Mixed signals from AI models"
+        strategy = "Wait for clearer consensus or catalyst before entry"
+    else:
+        bias = "⚠️ **UNCERTAIN** - No reliable AI consensus"
+        strategy = "High risk. Only consider with strong personal conviction + small size"
+
+    # Build the verdict
+    verdict = f"""
+{conviction_emoji} **{conviction}** | {tier}
+
+{bias}
+
+**Strategy:** {strategy}
+
+**Key Stats:**
+• Consensus: {consensus:.0f}% ({successful} models)
+• Median Estimate: ${median:.1f}B
+• {spread_note} (σ = ${std_dev:.1f}B)
+• {tier_note}
+""".strip()
+
+    return verdict
 
 
 # =============================================================================
@@ -164,13 +250,18 @@ async def update_progress_message(
     successful = [r for r in results if r.value_billions is not None]
     failed = [r for r in results if r.value_billions is None]
 
-    # Build progress text
+    # Build progress text with reasoning
     progress_lines = []
 
-    for r in successful[-8:]:  # Show last 8 successful
-        progress_lines.append(f"✅ **{r.model_name}**: {r.value_formatted}")
+    for r in successful[-6:]:  # Show last 6 successful (with reasoning they take more space)
+        line = f"✅ **{r.model_name}**: {r.value_formatted}"
+        if r.reasoning:
+            # Truncate reasoning for progress view
+            short_reasoning = r.reasoning[:80] + "..." if len(r.reasoning) > 80 else r.reasoning
+            line += f"\n   ↳ *{short_reasoning}*"
+        progress_lines.append(line)
 
-    for r in failed[-3:]:  # Show last 3 failed
+    for r in failed[-2:]:  # Show last 2 failed
         progress_lines.append(f"⚠️ {r.model_name}: {r.error or 'Parse failed'}")
 
     progress_text = "\n".join(progress_lines) if progress_lines else "Waiting for results..."
@@ -272,7 +363,7 @@ async def send_final_results(
         inline=True,
     )
 
-    # Model breakdown table
+    # Model breakdown table with reasoning
     model_lines = []
     sorted_estimates = sorted(
         [e for e in stats.estimates if e.value_billions],
@@ -280,21 +371,47 @@ async def send_final_results(
         reverse=True
     )
 
-    for est in sorted_estimates[:10]:  # Top 10
+    for est in sorted_estimates[:12]:  # Show up to 12 models
         emoji = "🟢" if abs(est.value_billions - stats.median_value) / stats.median_value <= 0.2 else "🟡"
-        model_lines.append(f"{emoji} **{est.model_name}**: {est.value_formatted}")
+        line = f"{emoji} **{est.model_name}**: {est.value_formatted}"
+        if est.reasoning:
+            # Show truncated reasoning
+            short_reasoning = est.reasoning[:100] + "..." if len(est.reasoning) > 100 else est.reasoning
+            line += f"\n   ↳ *{short_reasoning}*"
+        model_lines.append(line)
 
     if model_lines:
-        embed.add_field(
-            name="📋 Model Estimates (Top 10)",
-            value="\n".join(model_lines),
-            inline=False,
-        )
+        # Split into two fields if too many lines
+        if len(model_lines) > 6:
+            embed.add_field(
+                name="📋 Model Estimates",
+                value="\n".join(model_lines[:6]),
+                inline=False,
+            )
+            embed.add_field(
+                name="📋 More Estimates",
+                value="\n".join(model_lines[6:]),
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="📋 Model Estimates",
+                value="\n".join(model_lines),
+                inline=False,
+            )
 
-    # Verdict
+    # Analysis
     embed.add_field(
         name="💡 Analysis",
         value=stats.verdict[:500],
+        inline=False,
+    )
+
+    # Final Trade Verdict
+    trade_verdict = generate_trade_verdict(stats)
+    embed.add_field(
+        name="🎯 TRADE VERDICT",
+        value=trade_verdict,
         inline=False,
     )
 

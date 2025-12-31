@@ -26,6 +26,7 @@ class MarketCapResult:
     model_id: str
     full_response: str
     error: Optional[str] = None
+    reasoning: Optional[str] = None  # One-line reasoning from model
 
     @property
     def value_formatted(self) -> str:
@@ -105,6 +106,56 @@ WORD_NUMBERS = {
 }
 
 
+def _extract_verdict_line(text: str) -> Optional[Tuple[str, str]]:
+    """
+    Extract the VERDICT line from model response.
+
+    Expected format: VERDICT: $XB - reasoning text
+
+    Returns:
+        Tuple of (market_cap_part, reasoning) or None if not found
+    """
+    # Look for VERDICT: line (case insensitive)
+    pattern = r'VERDICT:\s*(.+)'
+    match = re.search(pattern, text, re.IGNORECASE)
+
+    if match:
+        verdict_content = match.group(1).strip()
+
+        # Split on " - " to separate value from reasoning
+        if ' - ' in verdict_content:
+            parts = verdict_content.split(' - ', 1)
+            return (parts[0].strip(), parts[1].strip())
+        else:
+            # No reasoning separator, just return the whole thing as value
+            return (verdict_content, None)
+
+    return None
+
+
+def _extract_reasoning_fallback(text: str) -> Optional[str]:
+    """
+    Try to extract a concise reasoning from the response if no VERDICT line.
+    Looks for conclusion-like sentences.
+    """
+    # Look for common conclusion patterns
+    patterns = [
+        r'(?:therefore|thus|hence|in conclusion|my estimate is|i estimate|best estimate)[,:]?\s*([^.]+\.)',
+        r'(?:market cap|valuation)[^.]*?(\$[\d.]+\s*(?:billion|million|B|M|T)[^.]*\.)',
+    ]
+
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            reasoning = match.group(1).strip()
+            # Limit to 150 chars
+            if len(reasoning) > 150:
+                reasoning = reasoning[:147] + "..."
+            return reasoning
+
+    return None
+
+
 def parse_market_cap(
     response: str,
     model_name: str = "Unknown",
@@ -132,6 +183,29 @@ def parse_market_cap(
             error="Empty response",
         )
 
+    reasoning = None
+
+    # First, try to extract from VERDICT line (preferred)
+    verdict_result = _extract_verdict_line(response)
+    if verdict_result:
+        value_part, reasoning = verdict_result
+        # Parse the value from the verdict line
+        result = _parse_dollar_with_suffix(value_part) or _parse_number_with_suffix(value_part)
+        if result:
+            value, raw_text, confidence = result
+            return MarketCapResult(
+                value_billions=value,
+                raw_text=raw_text,
+                confidence=min(confidence + 0.05, 1.0),  # Boost confidence for VERDICT format
+                model_name=model_name,
+                model_id=model_id,
+                full_response=response,
+                reasoning=reasoning,
+            )
+
+    # Fallback: Try to extract reasoning from response
+    reasoning = _extract_reasoning_fallback(response)
+
     # Try different parsing strategies in order of reliability
     strategies = [
         _parse_dollar_with_suffix,      # "$10B", "$10 billion"
@@ -152,6 +226,7 @@ def parse_market_cap(
                 model_name=model_name,
                 model_id=model_id,
                 full_response=response,
+                reasoning=reasoning,
             )
 
     # No valid parse found

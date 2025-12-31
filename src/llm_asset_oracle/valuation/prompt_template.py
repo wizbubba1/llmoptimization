@@ -32,10 +32,17 @@ class ValuationPrompt:
 
 
 # The core template - proven to work well with LLMs
-VALUATION_TEMPLATE = """Year is {year}. Consider {token_name} ({ticker}): {category_description}. {key_differentiator}. Given {factors}, what is its best-estimate market cap (not FDV)? Do not use web search."""
+# Now includes instruction for concise final answer
+VALUATION_TEMPLATE = """Year is {year}. Consider {token_name} ({ticker}): {category_description}. {key_differentiator}. Given {factors}, what is its best-estimate market cap (not FDV)? Do not use web search.
+
+IMPORTANT: End your response with a single line in this exact format:
+VERDICT: $[X]B - [one sentence reasoning]"""
 
 # Extended template with comparables
-VALUATION_TEMPLATE_WITH_COMPARABLES = """Year is {year}. Consider {token_name} ({ticker}): {category_description}. {key_differentiator}. {comparable_context}Given {factors}, what is its best-estimate market cap (not FDV)? Do not use web search."""
+VALUATION_TEMPLATE_WITH_COMPARABLES = """Year is {year}. Consider {token_name} ({ticker}): {category_description}. {key_differentiator}. {comparable_context}Given {factors}, what is its best-estimate market cap (not FDV)? Do not use web search.
+
+IMPORTANT: End your response with a single line in this exact format:
+VERDICT: $[X]B - [one sentence reasoning]"""
 
 
 def build_valuation_prompt(prompt_data: ValuationPrompt) -> str:

@@ -1,8 +1,8 @@
 """
 Valuation Models Configuration
 
-The 15 cutting-edge models for market cap valuation analysis.
-These are the latest frontier models from top AI labs.
+The 15 cutting-edge frontier models for market cap valuation analysis.
+Updated December 2025 with latest model IDs from OpenRouter.
 """
 
 from dataclasses import dataclass
@@ -20,19 +20,57 @@ class ValuationModel:
 
 
 # =============================================================================
-# THE 15 VALUATION MODELS (User's Selection)
+# THE 15 VALUATION MODELS - Latest Frontier Models (December 2025)
 # =============================================================================
 
 VALUATION_MODELS = [
-    # xAI
+    # OpenAI - Latest GPT-5 series
     ValuationModel(
-        id="x-ai/grok-4",
-        name="Grok 4",
-        provider="xAI",
+        id="openai/gpt-5.2",
+        name="GPT-5.2",
+        provider="OpenAI",
+        tier="flagship",
+    ),
+    ValuationModel(
+        id="openai/gpt-5.1",
+        name="GPT-5.1",
+        provider="OpenAI",
+        tier="flagship",
+    ),
+    ValuationModel(
+        id="openai/gpt-4o",
+        name="GPT-4o",
+        provider="OpenAI",
+        tier="standard",
+    ),
+
+    # Anthropic - Latest Claude 4.5 series
+    ValuationModel(
+        id="anthropic/claude-opus-4.5",
+        name="Claude Opus 4.5",
+        provider="Anthropic",
+        tier="flagship",
+    ),
+    ValuationModel(
+        id="anthropic/claude-sonnet-4.5",
+        name="Claude Sonnet 4.5",
+        provider="Anthropic",
+        tier="standard",
+    ),
+    ValuationModel(
+        id="anthropic/claude-opus-4",
+        name="Claude Opus 4",
+        provider="Anthropic",
         tier="flagship",
     ),
 
-    # Google
+    # Google - Gemini 3 and 2.5
+    ValuationModel(
+        id="google/gemini-3-pro-preview",
+        name="Gemini 3 Pro",
+        provider="Google",
+        tier="flagship",
+    ),
     ValuationModel(
         id="google/gemini-2.5-pro-preview",
         name="Gemini 2.5 Pro",
@@ -46,55 +84,15 @@ VALUATION_MODELS = [
         tier="fast",
     ),
 
-    # OpenAI
+    # xAI - Grok 4
     ValuationModel(
-        id="openai/gpt-4o",
-        name="GPT-4o",
-        provider="OpenAI",
-        tier="flagship",
-    ),
-    ValuationModel(
-        id="openai/gpt-4.1",
-        name="GPT-4.1",
-        provider="OpenAI",
-        tier="flagship",
-    ),
-    ValuationModel(
-        id="openai/o3-mini",
-        name="o3-mini",
-        provider="OpenAI",
-        tier="standard",
-    ),
-
-    # Anthropic
-    ValuationModel(
-        id="anthropic/claude-opus-4",
-        name="Opus 4",
-        provider="Anthropic",
-        tier="flagship",
-    ),
-    ValuationModel(
-        id="anthropic/claude-sonnet-4",
-        name="Sonnet 4",
-        provider="Anthropic",
-        tier="standard",
-    ),
-    ValuationModel(
-        id="anthropic/claude-3.5-sonnet",
-        name="Claude 3.5 Sonnet",
-        provider="Anthropic",
-        tier="standard",
-    ),
-
-    # Moonshot (Kimi)
-    ValuationModel(
-        id="moonshotai/kimi-vl-a3b-thinking",
-        name="Kimi K2 Thinking",
-        provider="Moonshot",
+        id="x-ai/grok-4",
+        name="Grok 4",
+        provider="xAI",
         tier="flagship",
     ),
 
-    # DeepSeek
+    # DeepSeek - R1 and V3.1
     ValuationModel(
         id="deepseek/deepseek-r1",
         name="DeepSeek R1",
@@ -102,8 +100,8 @@ VALUATION_MODELS = [
         tier="flagship",
     ),
     ValuationModel(
-        id="deepseek/deepseek-chat",
-        name="DeepSeek V3",
+        id="deepseek/deepseek-chat-v3.1",
+        name="DeepSeek V3.1",
         provider="DeepSeek",
         tier="standard",
     ),
@@ -115,18 +113,20 @@ VALUATION_MODELS = [
         provider="Alibaba",
         tier="flagship",
     ),
-    ValuationModel(
-        id="qwen/qwen-2.5-72b-instruct",
-        name="Qwen 2.5 72B",
-        provider="Alibaba",
-        tier="standard",
-    ),
 
-    # Meta
+    # Meta - Llama
     ValuationModel(
         id="meta-llama/llama-3.1-405b-instruct",
         name="Llama 3.1 405B",
         provider="Meta",
+        tier="flagship",
+    ),
+
+    # Mistral
+    ValuationModel(
+        id="mistralai/mistral-large-latest",
+        name="Mistral Large",
+        provider="Mistral",
         tier="flagship",
     ),
 ]
