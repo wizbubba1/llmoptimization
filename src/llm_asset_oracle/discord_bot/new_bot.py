@@ -554,6 +554,10 @@ class InfoCommands(commands.Cog, name="Info"):
 def run_bot():
     """Run the Discord bot."""
     import sys
+    from dotenv import load_dotenv
+
+    # Load .env file
+    load_dotenv()
 
     logging.basicConfig(
         level=logging.INFO,
