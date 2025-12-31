@@ -55,9 +55,9 @@ class ValuationModal(ui.Modal, title="🔮 Token Valuation Analysis"):
     )
 
     description = ui.TextInput(
-        label="Description (what it does + key differentiator)",
+        label="Description + Key Differentiator",
         style=discord.TextStyle.paragraph,
-        placeholder="e.g., a high-throughput EVM Layer-1 using parallel execution for low-latency DeFi. Mainnet launched late-2025 with major funding.",
+        placeholder="e.g., high-throughput EVM L1 with parallel execution. Major funding, mainnet 2025.",
         required=True,
         max_length=300,
     )
