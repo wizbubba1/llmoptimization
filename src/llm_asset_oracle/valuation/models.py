@@ -1,8 +1,8 @@
 """
 Valuation Models Configuration
 
-The 15 cutting-edge frontier models for market cap valuation analysis.
-Updated December 2025 with latest model IDs from OpenRouter.
+The 15 reliable frontier models for market cap valuation analysis.
+Updated December 2025 - focuses on stable, working models from OpenRouter.
 """
 
 from dataclasses import dataclass
@@ -20,11 +20,11 @@ class ValuationModel:
 
 
 # =============================================================================
-# THE 15 VALUATION MODELS - Latest Frontier Models (December 2025)
+# THE 15 VALUATION MODELS - Tested & Reliable (December 2025)
 # =============================================================================
 
 VALUATION_MODELS = [
-    # OpenAI - Latest GPT-5 series
+    # OpenAI - Confirmed Working
     ValuationModel(
         id="openai/gpt-5.2",
         name="GPT-5.2",
@@ -32,19 +32,13 @@ VALUATION_MODELS = [
         tier="flagship",
     ),
     ValuationModel(
-        id="openai/gpt-5.1",
-        name="GPT-5.1",
-        provider="OpenAI",
-        tier="flagship",
-    ),
-    ValuationModel(
         id="openai/gpt-4o",
         name="GPT-4o",
         provider="OpenAI",
-        tier="standard",
+        tier="flagship",
     ),
 
-    # Anthropic - Latest Claude 4.5 series
+    # Anthropic - Confirmed Working
     ValuationModel(
         id="anthropic/claude-opus-4.5",
         name="Claude Opus 4.5",
@@ -64,27 +58,7 @@ VALUATION_MODELS = [
         tier="flagship",
     ),
 
-    # Google - Gemini 3 and 2.5
-    ValuationModel(
-        id="google/gemini-3-pro-preview",
-        name="Gemini 3 Pro",
-        provider="Google",
-        tier="flagship",
-    ),
-    ValuationModel(
-        id="google/gemini-2.5-pro-preview",
-        name="Gemini 2.5 Pro",
-        provider="Google",
-        tier="flagship",
-    ),
-    ValuationModel(
-        id="google/gemini-2.5-flash-preview",
-        name="Gemini 2.5 Flash",
-        provider="Google",
-        tier="fast",
-    ),
-
-    # xAI - Grok 4
+    # xAI - Confirmed Working
     ValuationModel(
         id="x-ai/grok-4",
         name="Grok 4",
@@ -92,41 +66,73 @@ VALUATION_MODELS = [
         tier="flagship",
     ),
 
-    # DeepSeek - R1 and V3.1
-    ValuationModel(
-        id="deepseek/deepseek-r1",
-        name="DeepSeek R1",
-        provider="DeepSeek",
-        tier="flagship",
-    ),
+    # DeepSeek - Confirmed Working
     ValuationModel(
         id="deepseek/deepseek-chat-v3.1",
         name="DeepSeek V3.1",
         provider="DeepSeek",
-        tier="standard",
-    ),
-
-    # Qwen (Alibaba)
-    ValuationModel(
-        id="qwen/qwen3-235b-a22b",
-        name="Qwen 3 235B",
-        provider="Alibaba",
         tier="flagship",
     ),
 
-    # Meta - Llama
+    # Meta - Confirmed Working
     ValuationModel(
         id="meta-llama/llama-3.1-405b-instruct",
         name="Llama 3.1 405B",
         provider="Meta",
         tier="flagship",
     ),
+    ValuationModel(
+        id="meta-llama/llama-3.3-70b-instruct",
+        name="Llama 3.3 70B",
+        provider="Meta",
+        tier="standard",
+    ),
 
-    # Mistral
+    # Cohere - Stable & Reliable
+    ValuationModel(
+        id="cohere/command-r-plus-08-2024",
+        name="Command R+",
+        provider="Cohere",
+        tier="flagship",
+    ),
+
+    # Perplexity - Reliable
+    ValuationModel(
+        id="perplexity/sonar-pro",
+        name="Sonar Pro",
+        provider="Perplexity",
+        tier="flagship",
+    ),
+
+    # Mistral - Stable Release
     ValuationModel(
         id="mistralai/mistral-large-latest",
         name="Mistral Large",
         provider="Mistral",
+        tier="flagship",
+    ),
+
+    # Qwen - Stable Version
+    ValuationModel(
+        id="qwen/qwen-2.5-72b-instruct",
+        name="Qwen 2.5 72B",
+        provider="Alibaba",
+        tier="standard",
+    ),
+
+    # Google - Stable Release (not preview)
+    ValuationModel(
+        id="google/gemini-2.0-flash",
+        name="Gemini 2.0 Flash",
+        provider="Google",
+        tier="fast",
+    ),
+
+    # AI21 - Reliable
+    ValuationModel(
+        id="ai21/jamba-1.5-large",
+        name="Jamba 1.5 Large",
+        provider="AI21",
         tier="flagship",
     ),
 ]

@@ -4,8 +4,9 @@ Valuation Discord Bot
 Features:
 - /valuate command with modal for fill-in-the-blanks
 - Real-time streaming of model results
+- Shows the crafted prompt being sent to LLMs
 - Chart generation and upload
-- Statistical analysis display
+- Statistical analysis display (factual, no opinions)
 """
 
 import asyncio
@@ -21,94 +22,9 @@ from llm_asset_oracle.valuation.engine import ValuationEngine, ValuationResult
 from llm_asset_oracle.valuation.parser import MarketCapResult
 from llm_asset_oracle.valuation.statistics import format_stats_table, ValuationStatistics
 from llm_asset_oracle.valuation.models import format_model_list, VALUATION_MODELS
+from llm_asset_oracle.valuation.prompt_template import build_simple_prompt
 
 logger = logging.getLogger(__name__)
-
-
-def generate_trade_verdict(stats: ValuationStatistics) -> str:
-    """
-    Generate a final trade verdict based on consensus data.
-
-    Combines agreement percentage and median market cap to produce
-    a directional bias and trade plan recommendation.
-    """
-    consensus = stats.consensus_strength
-    median = stats.median_value
-    std_dev = stats.std_dev
-    successful = stats.successful_parses
-
-    # Determine conviction level based on consensus
-    if consensus >= 80:
-        conviction = "HIGH CONVICTION"
-        conviction_emoji = "🔥"
-    elif consensus >= 60:
-        conviction = "MODERATE CONVICTION"
-        conviction_emoji = "✅"
-    elif consensus >= 40:
-        conviction = "LOW CONVICTION"
-        conviction_emoji = "⚠️"
-    else:
-        conviction = "NO CONSENSUS"
-        conviction_emoji = "❌"
-
-    # Determine valuation tier
-    if median >= 50:
-        tier = "MEGA CAP"
-        tier_note = "Large cap potential, but high bar to meet"
-    elif median >= 20:
-        tier = "LARGE CAP"
-        tier_note = "Substantial valuation - needs strong fundamentals"
-    elif median >= 5:
-        tier = "MID CAP"
-        tier_note = "Solid mid-range potential"
-    elif median >= 1:
-        tier = "SMALL CAP"
-        tier_note = "Higher risk/reward profile"
-    else:
-        tier = "MICRO CAP"
-        tier_note = "Speculative territory"
-
-    # Calculate coefficient of variation for spread assessment
-    cv = (std_dev / median * 100) if median > 0 else 100
-
-    if cv <= 30:
-        spread_note = "Tight consensus - models agree"
-    elif cv <= 60:
-        spread_note = "Moderate spread - some divergence"
-    else:
-        spread_note = "Wide spread - high uncertainty"
-
-    # Generate directional bias
-    if consensus >= 60 and cv <= 50:
-        if median >= 10:
-            bias = "📈 **BULLISH BIAS** - Strong AI consensus supports investment thesis"
-            strategy = f"Consider LONG position on launch. Target: ${median:.1f}B+ market cap"
-        else:
-            bias = "📈 **CAUTIOUSLY BULLISH** - Consensus exists but modest upside"
-            strategy = f"Selective entry on dips. Watch for ${median*1.5:.1f}B breakout"
-    elif consensus >= 40:
-        bias = "↔️ **NEUTRAL** - Mixed signals from AI models"
-        strategy = "Wait for clearer consensus or catalyst before entry"
-    else:
-        bias = "⚠️ **UNCERTAIN** - No reliable AI consensus"
-        strategy = "High risk. Only consider with strong personal conviction + small size"
-
-    # Build the verdict
-    verdict = f"""
-{conviction_emoji} **{conviction}** | {tier}
-
-{bias}
-
-**Strategy:** {strategy}
-
-**Key Stats:**
-• Consensus: {consensus:.0f}% ({successful} models)
-• Median Estimate: ${median:.1f}B
-• {spread_note} (σ = ${std_dev:.1f}B)
-• {tier_note}
-""".strip()
-
-    return verdict
 
 
 # =============================================================================
@@ -180,17 +96,30 @@ class ValuationModal(ui.Modal, title="🔮 Token Valuation Analysis"):
         # Acknowledge immediately
         await interaction.response.defer(thinking=False)
 
-        # Create initial status message
+        # Build the prompt that will be sent to all LLMs
+        crafted_prompt = build_simple_prompt(
+            token_name=self.token_name.value,
+            ticker=self.ticker.value.upper(),
+            year=year,
+            description=self.description.value,
+            differentiator="",  # Included in description
+            factors=self.factors.value,
+        )
+
+        # Create initial status message with prompt preview
         embed = discord.Embed(
             title=f"🔮 Analyzing: {self.token_name.value} ({self.ticker.value.upper()})",
             description=f"**Target Year:** {year}\n\n⏳ Querying {len(VALUATION_MODELS)} AI models...",
             color=0x3498db,
         )
+
+        # Show the crafted prompt
         embed.add_field(
-            name="📝 Description",
-            value=self.description.value[:200],
+            name="📜 Prompt Being Sent to All LLMs",
+            value=f"```\n{crafted_prompt[:900]}{'...' if len(crafted_prompt) > 900 else ''}\n```",
             inline=False,
         )
+
         embed.set_footer(text="Results will appear below as models respond...")
 
         status_message = await interaction.followup.send(embed=embed)
@@ -212,6 +141,7 @@ class ValuationModal(ui.Modal, title="🔮 Token Valuation Analysis"):
                     year,
                     results_so_far,
                     len(VALUATION_MODELS),
+                    crafted_prompt,
                 )
 
         # Run valuation
@@ -228,7 +158,7 @@ class ValuationModal(ui.Modal, title="🔮 Token Valuation Analysis"):
             )
 
             # Send final results
-            await send_final_results(interaction, status_message, result)
+            await send_final_results(interaction, status_message, result, crafted_prompt)
 
         except Exception as e:
             logger.error(f"Valuation failed: {e}")
@@ -245,20 +175,20 @@ async def update_progress_message(
     year: int,
     results: list[MarketCapResult],
     total_models: int,
+    crafted_prompt: str,
 ):
     """Update the progress message as results come in."""
     successful = [r for r in results if r.value_billions is not None]
     failed = [r for r in results if r.value_billions is None]
 
-    # Build progress text with reasoning
+    # Build progress text with full reasoning (no truncation)
     progress_lines = []
 
-    for r in successful[-6:]:  # Show last 6 successful (with reasoning they take more space)
+    for r in successful[-5:]:  # Show last 5 successful
         line = f"✅ **{r.model_name}**: {r.value_formatted}"
         if r.reasoning:
-            # Truncate reasoning for progress view
-            short_reasoning = r.reasoning[:80] + "..." if len(r.reasoning) > 80 else r.reasoning
-            line += f"\n   ↳ *{short_reasoning}*"
+            # Show full reasoning (Discord embed field limit is 1024, but we have multiple)
+            line += f"\n   ↳ *{r.reasoning}*"
         progress_lines.append(line)
 
     for r in failed[-2:]:  # Show last 2 failed
@@ -295,6 +225,13 @@ async def update_progress_message(
         inline=False,
     )
 
+    # Keep showing the prompt
+    embed.add_field(
+        name="📜 Prompt Sent to LLMs",
+        value=f"```\n{crafted_prompt[:500]}...\n```",
+        inline=False,
+    )
+
     try:
         await message.edit(embed=embed)
     except Exception as e:
@@ -305,6 +242,7 @@ async def send_final_results(
     interaction: discord.Interaction,
     status_message: discord.Message,
     result: ValuationResult,
+    crafted_prompt: str,
 ):
     """Send the final results with statistics and chart."""
     stats = result.statistics
@@ -345,9 +283,9 @@ async def send_final_results(
     )
 
     embed.add_field(
-        name="📊 Confidence",
+        name="📊 Statistics",
         value=(
-            f"**Consensus:** {stats.consensus_strength:.0f}% ({stats.consensus_label})\n"
+            f"**Agreement:** {stats.consensus_strength:.0f}%\n"
             f"**IQR:** {stats.iqr_formatted}\n"
             f"**95% CI:** {stats.ci_formatted}"
         ),
@@ -363,60 +301,57 @@ async def send_final_results(
         inline=True,
     )
 
-    # Model breakdown table with reasoning
-    model_lines = []
+    # Model breakdown with FULL reasoning (no truncation)
     sorted_estimates = sorted(
         [e for e in stats.estimates if e.value_billions],
         key=lambda x: x.value_billions,
         reverse=True
     )
 
-    for est in sorted_estimates[:12]:  # Show up to 12 models
+    # Build model lines with full reasoning
+    model_sections = []
+    for est in sorted_estimates:
         emoji = "🟢" if abs(est.value_billions - stats.median_value) / stats.median_value <= 0.2 else "🟡"
         line = f"{emoji} **{est.model_name}**: {est.value_formatted}"
         if est.reasoning:
-            # Show truncated reasoning
-            short_reasoning = est.reasoning[:100] + "..." if len(est.reasoning) > 100 else est.reasoning
-            line += f"\n   ↳ *{short_reasoning}*"
-        model_lines.append(line)
+            line += f"\n   ↳ *{est.reasoning}*"
+        model_sections.append(line)
 
-    if model_lines:
-        # Split into two fields if too many lines
-        if len(model_lines) > 6:
-            embed.add_field(
-                name="📋 Model Estimates",
-                value="\n".join(model_lines[:6]),
-                inline=False,
-            )
+    # Split into multiple embed fields to avoid Discord limits
+    if model_sections:
+        # First half
+        first_half = model_sections[:len(model_sections)//2 + 1]
+        second_half = model_sections[len(model_sections)//2 + 1:]
+
+        embed.add_field(
+            name="📋 Model Estimates",
+            value="\n".join(first_half)[:1024],  # Discord field limit
+            inline=False,
+        )
+
+        if second_half:
             embed.add_field(
                 name="📋 More Estimates",
-                value="\n".join(model_lines[6:]),
-                inline=False,
-            )
-        else:
-            embed.add_field(
-                name="📋 Model Estimates",
-                value="\n".join(model_lines),
+                value="\n".join(second_half)[:1024],
                 inline=False,
             )
 
-    # Analysis
+    # Distribution Analysis (factual only)
     embed.add_field(
-        name="💡 Analysis",
+        name="📈 Distribution Analysis",
         value=stats.verdict[:500],
         inline=False,
     )
 
-    # Final Trade Verdict
-    trade_verdict = generate_trade_verdict(stats)
+    # Show the prompt that was used
     embed.add_field(
-        name="🎯 TRADE VERDICT",
-        value=trade_verdict,
+        name="📜 Prompt Used",
+        value=f"```\n{crafted_prompt[:400]}...\n```",
         inline=False,
     )
 
     embed.set_footer(
-        text=f"Completed in {result.total_time_ms/1000:.1f}s | Not financial advice"
+        text=f"Completed in {result.total_time_ms/1000:.1f}s | Data only - interpret at your discretion"
     )
 
     # Edit the status message with final results
@@ -563,9 +498,9 @@ class ValuationCommands(commands.Cog, name="Valuation"):
         embed.add_field(
             name="📊 Output",
             value=(
+                "• The exact prompt sent to all models\n"
                 "• Median & Mean valuation\n"
-                "• Consensus strength %\n"
-                "• Model-by-model breakdown\n"
+                "• Model-by-model estimates + reasoning\n"
                 "• Statistical charts\n"
                 "• Confidence intervals"
             ),
