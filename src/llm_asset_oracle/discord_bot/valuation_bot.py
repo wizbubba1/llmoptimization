@@ -225,10 +225,10 @@ async def update_progress_message(
         inline=False,
     )
 
-    # Keep showing the prompt
+    # Keep showing the full prompt
     embed.add_field(
         name="📜 Prompt Sent to LLMs",
-        value=f"```\n{crafted_prompt[:500]}...\n```",
+        value=f"```\n{crafted_prompt}\n```",
         inline=False,
     )
 
@@ -343,10 +343,10 @@ async def send_final_results(
         inline=False,
     )
 
-    # Show the prompt that was used
+    # Show the full prompt that was used (Discord field limit is 1024)
     embed.add_field(
         name="📜 Prompt Used",
-        value=f"```\n{crafted_prompt[:400]}...\n```",
+        value=f"```\n{crafted_prompt}\n```",
         inline=False,
     )
 
