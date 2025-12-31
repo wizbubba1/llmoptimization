@@ -67,7 +67,7 @@ venv.bak/
 *~
 
 # Project specific
-data/
+/data/
 *.db
 *.sqlite
 *.log
