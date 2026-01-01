@@ -20,6 +20,10 @@ from llm_asset_oracle.valuation.statistics import (
 from llm_asset_oracle.valuation.charts import (
     generate_valuation_chart,
 )
+from llm_asset_oracle.valuation.advanced_analysis import (
+    run_advanced_analysis,
+    AdvancedAnalysis,
+)
 
 __all__ = [
     "ValuationPrompt",
@@ -29,4 +33,6 @@ __all__ = [
     "ValuationStatistics",
     "calculate_valuation_stats",
     "generate_valuation_chart",
+    "run_advanced_analysis",
+    "AdvancedAnalysis",
 ]
