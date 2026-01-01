@@ -290,7 +290,6 @@ async def send_final_results(
     embed.add_field(
         name="📊 Statistics",
         value=(
-            f"**Agreement:** {stats.consensus_strength:.0f}%\n"
             f"**IQR:** {stats.iqr_formatted}\n"
             f"**95% CI:** {stats.ci_formatted}"
         ),
