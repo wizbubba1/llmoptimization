@@ -65,10 +65,12 @@ class RefinedStatistics:
     mad: float  # Median Absolute Deviation
     robust_cv: float  # Coefficient of variation using MAD
 
-    # Consensus metrics
-    raw_consensus: float  # Original consensus %
-    refined_consensus: float  # After outlier removal
-    consensus_improvement: float  # How much it improved
+    # Consensus metrics (the 4 key metrics)
+    raw_consensus: float  # % within 25% of median (all models)
+    refined_consensus: float  # % within 25% of median (after outlier removal)
+    tight_band_consensus: float  # % within 10% of median (stricter)
+    consensus_grade: str  # A/B/C/D grade based on metrics
+    consensus_improvement: float  # How much it improved after cleaning
 
 
 @dataclass
@@ -272,6 +274,57 @@ def calculate_consensus_score(values: list[float], median: float) -> float:
     return (within_range / len(values)) * 100
 
 
+def calculate_tight_band_consensus(values: list[float], median: float) -> float:
+    """
+    Calculate tight band consensus (0-100).
+
+    Stricter metric: % of estimates within ±10% of median.
+    This shows how many models are in very close agreement.
+    """
+    if not values or median == 0:
+        return 0
+
+    threshold = median * 0.10  # ±10%
+    within_range = sum(1 for v in values if abs(v - median) <= threshold)
+
+    return (within_range / len(values)) * 100
+
+
+def calculate_consensus_grade(
+    raw_consensus: float,
+    refined_consensus: float,
+    tight_band: float,
+    is_divided: bool,
+) -> str:
+    """
+    Calculate overall consensus grade (A/B/C/D).
+
+    Grading criteria:
+    - A: Strong consensus (refined ≥70%, tight ≥40%, not divided)
+    - B: Good consensus (refined ≥55%, tight ≥25%)
+    - C: Moderate consensus (refined ≥40%, OR tight ≥15%)
+    - D: Weak/No consensus (below thresholds or divided camps)
+    """
+    # Heavily divided opinion is automatic D
+    if is_divided and refined_consensus < 50:
+        return "D"
+
+    # A grade: Strong agreement across all metrics
+    if refined_consensus >= 70 and tight_band >= 40 and not is_divided:
+        return "A"
+
+    # B grade: Good agreement
+    if refined_consensus >= 55 and tight_band >= 25:
+        return "B"
+
+    # C grade: Moderate agreement
+    if refined_consensus >= 40 or tight_band >= 15:
+        return "C"
+
+    # D grade: Weak consensus
+    return "D"
+
+
 def score_model_reliability(
     estimates: list[MarketCapResult],
     clean_median: float,
@@ -425,7 +478,13 @@ def run_advanced_analysis(estimates: list[MarketCapResult]) -> AdvancedAnalysis:
         return AdvancedAnalysis(
             outliers=OutlierAnalysis([], [], values, valid_estimates, "N/A", 0, 0),
             clusters=ClusterAnalysis(0, [], False, None, "Insufficient data"),
-            refined_stats=RefinedStatistics(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+            refined_stats=RefinedStatistics(
+                raw_mean=0, raw_median=0, raw_std=0, raw_count=0,
+                clean_mean=0, clean_median=0, clean_std=0, clean_count=0,
+                trimmed_mean=0, mad=0, robust_cv=0,
+                raw_consensus=0, refined_consensus=0, tight_band_consensus=0,
+                consensus_grade="D", consensus_improvement=0,
+            ),
             model_reliability=[],
             confidence_level="very_low",
             best_estimate=values[0] if values else 0,
@@ -477,6 +536,18 @@ def run_advanced_analysis(estimates: list[MarketCapResult]) -> AdvancedAnalysis:
     refined_consensus = calculate_consensus_score(clean_values, clean_median)
     consensus_improvement = refined_consensus - raw_consensus
 
+    # 6. Cluster analysis (needed for grade calculation)
+    clusters = detect_clusters(values, valid_estimates)
+
+    # 7. Tight band consensus and grade
+    tight_band_consensus = calculate_tight_band_consensus(clean_values, clean_median)
+    consensus_grade = calculate_consensus_grade(
+        raw_consensus=raw_consensus,
+        refined_consensus=refined_consensus,
+        tight_band=tight_band_consensus,
+        is_divided=clusters.is_divided,
+    )
+
     refined_stats = RefinedStatistics(
         raw_mean=raw_mean,
         raw_median=raw_median,
@@ -491,16 +562,15 @@ def run_advanced_analysis(estimates: list[MarketCapResult]) -> AdvancedAnalysis:
         robust_cv=robust_cv,
         raw_consensus=raw_consensus,
         refined_consensus=refined_consensus,
+        tight_band_consensus=tight_band_consensus,
+        consensus_grade=consensus_grade,
         consensus_improvement=consensus_improvement,
     )
 
-    # 6. Cluster analysis
-    clusters = detect_clusters(values, valid_estimates)
-
-    # 7. Model reliability scoring
+    # 8. Model reliability scoring
     model_reliability = score_model_reliability(valid_estimates, clean_median)
 
-    # 8. Generate verdict
+    # 9. Generate verdict
     confidence_level, best_estimate, estimate_range, summary, detailed = generate_verdict(
         refined_stats, clusters, model_reliability, outliers
     )

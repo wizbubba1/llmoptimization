@@ -347,21 +347,35 @@ async def send_final_results(
         inline=False,
     )
 
-    # ========== DATA SCIENCE SECTION (CONDENSED) ==========
+    # ========== CONSENSUS METRICS (KEY SIGNAL) ==========
+    rs = advanced.refined_stats
+
+    # Grade emoji
+    grade_emoji = {"A": "🅰️", "B": "🅱️", "C": "©️", "D": "🇩"}
+    g_emoji = grade_emoji.get(rs.consensus_grade, "❓")
+
+    embed.add_field(
+        name=f"{g_emoji} Consensus Grade: {rs.consensus_grade}",
+        value=(
+            f"**Raw Agreement:** {rs.raw_consensus:.0f}% (within ±25% of median)\n"
+            f"**Cleaned Agreement:** {rs.refined_consensus:.0f}% (after outlier removal)\n"
+            f"**Tight Band:** {rs.tight_band_consensus:.0f}% (within ±10% of median)"
+        ),
+        inline=False,
+    )
+
+    # ========== DATA SCIENCE DETAILS ==========
     confidence_emoji = {"high": "🟢", "moderate": "🟡", "low": "🟠", "very_low": "🔴"}
     emoji = confidence_emoji.get(advanced.confidence_level, "⚪")
-    rs = advanced.refined_stats
 
     # Outlier names
     outlier_text = ", ".join(advanced.outliers.outlier_models[:3]) if advanced.outliers.outlier_models else "None"
 
     embed.add_field(
-        name=f"{emoji} Data Science Analysis",
+        name=f"{emoji} Analysis Details",
         value=(
             f"**Best Estimate:** ${advanced.best_estimate:.1f}B | "
             f"**Range:** ${advanced.estimate_range[0]:.1f}B - ${advanced.estimate_range[1]:.1f}B\n"
-            f"**Confidence:** {advanced.confidence_level.upper()} | "
-            f"**Consensus:** {rs.raw_consensus:.0f}% → {rs.refined_consensus:.0f}% (cleaned)\n"
             f"**Trimmed Mean:** ${rs.trimmed_mean:.1f}B | **MAD:** ${rs.mad:.1f}B\n"
             f"**Outliers Removed:** {outlier_text}\n"
             f"**Cluster:** {advanced.clusters.division_description}"
