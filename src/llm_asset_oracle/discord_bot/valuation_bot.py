@@ -276,89 +276,98 @@ async def send_final_results(
         color=color,
     )
 
-    # ========== ADVANCED ANALYSIS SECTION ==========
-    confidence_emoji = {"high": "🟢", "moderate": "🟡", "low": "🟠", "very_low": "🔴"}
-    emoji = confidence_emoji.get(advanced.confidence_level, "⚪")
+    # ========== ORIGINAL STATS SECTION ==========
+    embed.add_field(
+        name="💰 Consensus Valuation",
+        value=(
+            f"**Median:** {stats.median_formatted}\n"
+            f"**Mean:** {stats.mean_formatted}\n"
+            f"**Range:** {stats.range_formatted}"
+        ),
+        inline=True,
+    )
 
     embed.add_field(
-        name=f"{emoji} Data Science Verdict",
+        name="📊 Statistics",
         value=(
-            f"**Best Estimate:** ${advanced.best_estimate:.1f}B\n"
-            f"**Credible Range:** ${advanced.estimate_range[0]:.1f}B - ${advanced.estimate_range[1]:.1f}B\n"
-            f"**Confidence:** {advanced.confidence_level.upper()}\n\n"
-            f"*{advanced.verdict_summary}*"
+            f"**Agreement:** {stats.consensus_strength:.0f}%\n"
+            f"**IQR:** {stats.iqr_formatted}\n"
+            f"**95% CI:** {stats.ci_formatted}"
         ),
+        inline=True,
+    )
+
+    embed.add_field(
+        name="🤖 Models",
+        value=(
+            f"**Successful:** {stats.successful_parses}/{stats.total_models}\n"
+            f"**Outliers:** {stats.outlier_count}"
+        ),
+        inline=True,
+    )
+
+    # ========== MODEL ESTIMATES WITH REASONING ==========
+    sorted_estimates = sorted(
+        [e for e in stats.estimates if e.value_billions],
+        key=lambda x: x.value_billions,
+        reverse=True
+    )
+
+    # Build model lines with full reasoning
+    model_sections = []
+    for est in sorted_estimates:
+        emoji = "🟢" if abs(est.value_billions - stats.median_value) / stats.median_value <= 0.2 else "🟡"
+        line = f"{emoji} **{est.model_name}**: {est.value_formatted}"
+        if est.reasoning:
+            line += f"\n↳ *{est.reasoning}*"
+        model_sections.append(line)
+
+    # Split into multiple embed fields to avoid Discord limits
+    if model_sections:
+        first_half = model_sections[:len(model_sections)//2 + 1]
+        second_half = model_sections[len(model_sections)//2 + 1:]
+
+        embed.add_field(
+            name="📋 Model Estimates",
+            value="\n".join(first_half)[:1024],
+            inline=False,
+        )
+
+        if second_half:
+            embed.add_field(
+                name="📋 More Estimates",
+                value="\n".join(second_half)[:1024],
+                inline=False,
+            )
+
+    # Distribution Analysis
+    embed.add_field(
+        name="📈 Distribution Analysis",
+        value=stats.verdict[:500],
         inline=False,
     )
 
-    # Refined Statistics
+    # ========== DATA SCIENCE SECTION (CONDENSED) ==========
+    confidence_emoji = {"high": "🟢", "moderate": "🟡", "low": "🟠", "very_low": "🔴"}
+    emoji = confidence_emoji.get(advanced.confidence_level, "⚪")
     rs = advanced.refined_stats
-    embed.add_field(
-        name="📊 Refined Statistics",
-        value=(
-            f"**Raw → Cleaned Consensus:** {rs.raw_consensus:.0f}% → {rs.refined_consensus:.0f}%\n"
-            f"**Trimmed Mean:** ${rs.trimmed_mean:.1f}B\n"
-            f"**Robust Spread (MAD):** ${rs.mad:.1f}B\n"
-            f"**Data Points:** {rs.raw_count} raw → {rs.clean_count} clean"
-        ),
-        inline=True,
-    )
 
-    # Outlier Info
-    if advanced.outliers.outlier_models:
-        outlier_text = ", ".join(advanced.outliers.outlier_models[:5])
-        if len(advanced.outliers.outlier_models) > 5:
-            outlier_text += f" (+{len(advanced.outliers.outlier_models)-5} more)"
-    else:
-        outlier_text = "None detected"
+    # Outlier names
+    outlier_text = ", ".join(advanced.outliers.outlier_models[:3]) if advanced.outliers.outlier_models else "None"
 
     embed.add_field(
-        name="🚫 Outliers Removed",
+        name=f"{emoji} Data Science Analysis",
         value=(
-            f"**Removed:** {outlier_text}\n"
-            f"**Fence:** ${advanced.outliers.lower_fence:.1f}B - ${advanced.outliers.upper_fence:.1f}B"
+            f"**Best Estimate:** ${advanced.best_estimate:.1f}B | "
+            f"**Range:** ${advanced.estimate_range[0]:.1f}B - ${advanced.estimate_range[1]:.1f}B\n"
+            f"**Confidence:** {advanced.confidence_level.upper()} | "
+            f"**Consensus:** {rs.raw_consensus:.0f}% → {rs.refined_consensus:.0f}% (cleaned)\n"
+            f"**Trimmed Mean:** ${rs.trimmed_mean:.1f}B | **MAD:** ${rs.mad:.1f}B\n"
+            f"**Outliers Removed:** {outlier_text}\n"
+            f"**Cluster:** {advanced.clusters.division_description}"
         ),
-        inline=True,
+        inline=False,
     )
-
-    # Cluster Analysis
-    if advanced.clusters.num_clusters > 0:
-        embed.add_field(
-            name="🎯 Cluster Analysis",
-            value=advanced.clusters.division_description,
-            inline=False,
-        )
-
-    # Model Reliability Tiers
-    core_models = [m for m in advanced.model_reliability if m.tier == "core"]
-    moderate_models = [m for m in advanced.model_reliability if m.tier == "moderate"]
-    outlier_models_list = [m for m in advanced.model_reliability if m.tier == "outlier"]
-
-    tier_lines = []
-    if core_models:
-        core_names = ", ".join([f"{m.model_name} (${m.estimate:.0f}B)" for m in core_models[:6]])
-        tier_lines.append(f"🟢 **Core ({len(core_models)}):** {core_names}")
-    if moderate_models:
-        mod_names = ", ".join([f"{m.model_name} (${m.estimate:.0f}B)" for m in moderate_models[:4]])
-        tier_lines.append(f"🟡 **Moderate ({len(moderate_models)}):** {mod_names}")
-    if outlier_models_list:
-        out_names = ", ".join([f"{m.model_name} (${m.estimate:.0f}B)" for m in outlier_models_list[:3]])
-        tier_lines.append(f"🔴 **Outliers ({len(outlier_models_list)}):** {out_names}")
-
-    if tier_lines:
-        embed.add_field(
-            name="🤖 Model Reliability Tiers",
-            value="\n".join(tier_lines)[:1024],
-            inline=False,
-        )
-
-    # Detailed Analysis
-    if advanced.detailed_verdict:
-        embed.add_field(
-            name="📈 Detailed Analysis",
-            value=advanced.detailed_verdict[:1024],
-            inline=False,
-        )
 
     # Show the full prompt
     embed.add_field(
