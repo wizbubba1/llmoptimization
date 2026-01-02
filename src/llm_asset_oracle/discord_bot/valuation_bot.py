@@ -305,21 +305,18 @@ async def send_final_results(
         inline=True,
     )
 
-    # ========== MODEL ESTIMATES WITH REASONING ==========
+    # ========== MODEL ESTIMATES ==========
     sorted_estimates = sorted(
         [e for e in stats.estimates if e.value_billions],
         key=lambda x: x.value_billions,
         reverse=True
     )
 
-    # Build model lines with full reasoning
+    # Build model lines (estimates only, no reasoning)
     model_sections = []
     for est in sorted_estimates:
         emoji = "🟢" if abs(est.value_billions - stats.median_value) / stats.median_value <= 0.2 else "🟡"
-        line = f"{emoji} **{est.model_name}**: {est.value_formatted}"
-        if est.reasoning:
-            line += f"\n↳ *{est.reasoning}*"
-        model_sections.append(line)
+        model_sections.append(f"{emoji} **{est.model_name}**: {est.value_formatted}")
 
     # Split into multiple embed fields to avoid Discord limits
     if model_sections:
